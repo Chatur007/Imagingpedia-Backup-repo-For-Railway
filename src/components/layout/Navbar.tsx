@@ -71,8 +71,17 @@ export const Navbar = () => {
       <div className="container mx-auto px-4 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
-            <span className="text-primary font-display font-bold text-xl">I</span>
+          {/* <div className="w-10 h-10 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
+             <span className="text-primary font-display font-bold text-xl">I</span>
+            <img src="/Logo_3-removebg-preview.png" alt="logo" />
+          </div> */}
+             <div className="w-20 h-20 flex items-center justify-center">
+            {/* <span className="text-primary font-display font-bold text-xl">I</span> */}
+            <img 
+              src="/Logo 3.png" 
+              alt="logo" 
+              className="w-full h-full object-contain"
+            />
           </div>
           <span className="font-display text-xl font-semibold text-foreground">
             Imaging<span className="text-primary">pedia</span>

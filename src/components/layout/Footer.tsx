@@ -9,9 +9,17 @@ export const Footer = () => {
           {/* Brand Column */}
           <div className="space-y-4">
             <Link to="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
+              {/* <div className="w-10 h-10 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
                 <span className="text-primary font-display font-bold text-xl">I</span>
-              </div>
+              </div> */}
+                <div className="w-14 h-14 flex items-center justify-center">
+            {/* <span className="text-primary font-display font-bold text-xl">I</span> */}
+            <img 
+              src="/Logo 3.png" 
+              alt="logo" 
+              className="w-full h-full object-contain"
+            />
+          </div>
               <span className="font-display text-xl font-semibold text-foreground">
                 Imaging<span className="text-primary">pedia</span>
               </span>
