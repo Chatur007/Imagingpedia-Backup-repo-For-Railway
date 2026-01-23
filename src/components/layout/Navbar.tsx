@@ -105,6 +105,9 @@ export const Navbar = () => {
               {link.name}
             </Link>
           ))}
+          <Button asChild size="sm" className="ml-2">
+            <Link to="/start-test">Bigin Test</Link>
+          </Button>
         </nav>
 
         {/* Desktop CTA */}
@@ -163,6 +166,9 @@ export const Navbar = () => {
                   {link.name}
                 </Link>
               ))}
+              <Button asChild className="w-full mt-2">
+                <Link to="/start-test">Bigin Test</Link>
+              </Button>
               <div className="flex flex-col gap-3 pt-4 border-t border-border/50">
                 {authed ? (
                   <>

@@ -1,6 +1,8 @@
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { api, SubmissionResult } from "@/lib/api";
 import { 
   Clock, FileQuestion, CheckCircle, XCircle, Award
 } from "lucide-react";
@@ -145,11 +147,96 @@ const testsData = {
 };
 
 const Tests = () => {
-  const [selectedCourse, setSelectedCourse] = useState<string>("radiology");
+  const location = useLocation() as { state?: any };
+  const navigate = useNavigate();
+  const incoming = location.state?.testInfo as
+    | { id: number; name: string; email: string; subjectId: number; startedAt: number }
+    | undefined;
+
+  const [selectedCourse, setSelectedCourse] = useState<string>(incoming?.subjectId?.toString() ?? "1");
   const [testAnswers, setTestAnswers] = useState<{[key: string]: {[key: number]: string}}>({});
   const [showTestResults, setShowTestResults] = useState<{[key: string]: boolean}>({});
+  const [remainingSec, setRemainingSec] = useState<number | null>(null);
+  const [testStarted, setTestStarted] = useState(false);
+  const [aiResults, setAiResults] = useState<{[key: string]: {[key: number]: SubmissionResult}}>({});
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
+  const [subjectName, setSubjectName] = useState("");
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [submittingQuestion, setSubmittingQuestion] = useState(false);
+  const subjectLocked = Boolean(incoming?.subjectId);
 
   const currentTest = testsData[selectedCourse as keyof typeof testsData];
+
+  const subjectDurationMins = useMemo(() => {
+    // Default 90 minutes for all tests
+    return 90;
+  }, []);
+
+  // Fetch questions from database
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      if (!incoming?.subjectId) return;
+      
+      setIsLoadingQuestions(true);
+      try {
+        // Fetch subject details
+        const subjectRes = await fetch(`http://localhost:3000/subjects/${incoming.subjectId}`);
+        if (subjectRes.ok) {
+          const subjectData = await subjectRes.json();
+          setSubjectName(subjectData.subject_name);
+        }
+        
+        // Fetch questions
+        const questionsRes = await fetch(`http://localhost:3000/questions/subject/${incoming.subjectId}`);
+        if (questionsRes.ok) {
+          const questionsData = await questionsRes.json();
+          setQuestions(questionsData);
+        }
+      } catch (error) {
+        console.error("Error fetching questions:", error);
+      } finally {
+        setIsLoadingQuestions(false);
+      }
+    };
+    
+    fetchQuestions();
+  }, [incoming?.subjectId]);
+
+  useEffect(() => {
+    // Require going through StartTest to enter here
+    if (!incoming?.subjectId) {
+      navigate("/start-test", { replace: true });
+      return;
+    }
+    // Timer initialization moved to when test starts
+  }, [incoming?.subjectId, navigate]);
+
+  useEffect(() => {
+    if (!testStarted || remainingSec === null) return;
+    if (remainingSec <= 0) {
+      // Auto submit when time runs out
+      setShowTestResults(prev => ({ ...prev, [selectedCourse]: true }));
+      return;
+    }
+    const t = setInterval(() => setRemainingSec((s) => (s ?? 0) - 1), 1000);
+    return () => clearInterval(t);
+  }, [remainingSec, selectedCourse, testStarted]);
+
+  // Prevent page reload during active test
+  useEffect(() => {
+    if (!testStarted || isTestSubmitted()) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "You cannot reload the page during the test. Your progress will be lost!";
+      return "You cannot reload the page during the test. Your progress will be lost!";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [testStarted, selectedCourse, showTestResults]);
 
   const handleAnswerChange = (courseId: string, questionId: number, answer: string) => {
     setTestAnswers(prev => ({
@@ -161,8 +248,134 @@ const Tests = () => {
     }));
   };
 
-  const submitTest = (courseId: string) => {
-    setShowTestResults(prev => ({ ...prev, [courseId]: true }));
+  const startTest = () => {
+    setTestStarted(true);
+    setRemainingSec(subjectDurationMins * 60);
+    setCurrentQuestionIndex(0);
+  };
+
+  const submitCurrentQuestion = async () => {
+    const currentQuestion = questions[currentQuestionIndex];
+    const currentAnswers = getCurrentAnswers();
+    const userAnswer = currentAnswers[currentQuestion.id];
+
+    if (!userAnswer || !userAnswer.trim()) {
+      alert("Please provide an answer before proceeding.");
+      return;
+    }
+
+    setSubmittingQuestion(true);
+    try {
+      const studentId = incoming?.id || Math.floor(Math.random() * 10000);
+      const payload = {
+        student_id: studentId,
+        question_id: currentQuestion.id,
+        answer: userAnswer,
+        model_answer: currentQuestion.model_answer,
+        max_marks: currentQuestion.max_marks,
+      };
+
+      console.log(`Submitting Question ${currentQuestion.id}:`, payload);
+
+      const response = await fetch('http://localhost:3000/submission', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`Question ${currentQuestion.id} Result:`, result);
+        setAiResults(prev => ({
+          ...prev,
+          [selectedCourse]: {
+            ...(prev[selectedCourse] || {}),
+            [currentQuestion.id]: result
+          }
+        }));
+
+        // Move to next question or finish
+        if (currentQuestionIndex < questions.length - 1) {
+          setCurrentQuestionIndex(prev => prev + 1);
+        } else {
+          // All questions submitted
+          setShowTestResults(prev => ({ ...prev, [selectedCourse]: true }));
+        }
+      } else {
+        const text = await response.text();
+        console.error(`Question ${currentQuestion.id} Error Response:`, text);
+        alert("Failed to submit answer. Please try again.");
+      }
+    } catch (error) {
+      console.error(`Failed to evaluate question ${currentQuestion.id}:`, error);
+      alert("Network error. Please try again.");
+    } finally {
+      setSubmittingQuestion(false);
+    }
+  };
+
+  const submitTest = async (courseId: string) => {
+    setIsEvaluating(true);
+    try {
+      const currentAnswers = getCurrentAnswers();
+      const results: {[key: number]: SubmissionResult} = {};
+
+      // Use the student ID from the database (passed from StartTest)
+      const studentId = incoming?.id || Math.floor(Math.random() * 10000);
+
+      console.log("=== SUBMITTING TEST ===");
+      console.log("Student ID:", studentId);
+      console.log("Questions count:", questions.length);
+      console.log("Current Answers:", currentAnswers);
+
+      // Submit each answer to backend for AI evaluation
+      for (const question of questions) {
+        const userAnswer = currentAnswers[question.id];
+        if (userAnswer && userAnswer.trim()) {
+          try {
+            const payload = {
+              student_id: studentId,
+              question_id: question.id,
+              answer: userAnswer,
+              model_answer: question.model_answer,
+              max_marks: question.max_marks,
+            };
+
+            console.log(`Submitting Question ${question.id}:`, payload);
+
+            const response = await fetch('http://localhost:3000/submission', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+
+            console.log(`Question ${question.id} Response Status:`, response.status);
+            console.log(`Question ${question.id} Response OK:`, response.ok);
+
+            if (!response.ok) {
+              const text = await response.text();
+              console.error(`Question ${question.id} Error Response:`, text);
+              continue;
+            }
+
+            const result = await response.json();
+            console.log(`Question ${question.id} Result:`, result);
+            results[question.id] = result;
+          } catch (error) {
+            console.error(`Failed to evaluate question ${question.id}:`, error);
+          }
+        }
+      }
+
+      console.log("All Results:", results);
+      setAiResults(prev => ({ ...prev, [courseId]: results }));
+      setShowTestResults(prev => ({ ...prev, [courseId]: true }));
+    } catch (error) {
+      console.error("Test submission error:", error);
+      alert("Failed to submit test. Please try again.");
+    } finally {
+      setIsEvaluating(false);
+    }
   };
 
   const resetTest = (courseId: string) => {
@@ -172,10 +385,24 @@ const Tests = () => {
       return updated;
     });
     setShowTestResults(prev => ({ ...prev, [courseId]: false }));
+    setCurrentQuestionIndex(0);
+    setTestStarted(false);
+    setAiResults(prev => {
+      const updated = { ...prev };
+      delete updated[courseId];
+      return updated;
+    });
   };
 
   const getCurrentAnswers = () => testAnswers[selectedCourse] || {};
   const isTestSubmitted = () => showTestResults[selectedCourse] || false;
+  const getCurrentAiResults = () => aiResults[selectedCourse] || {};
+
+  const formatTime = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
 
   return (
     <>
@@ -205,18 +432,40 @@ const Tests = () => {
                 </p>
               </motion.div>
 
-              {/* Course Filter Tabs */}
+              {/* Course/Tabs and Timer */}
               <div className="max-w-6xl mx-auto">
-                <Tabs value={selectedCourse} onValueChange={setSelectedCourse} className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-8">
-                    <TabsTrigger value="radiology">Radiology</TabsTrigger>
-                    <TabsTrigger value="cardiology">Cardiology</TabsTrigger>
-                    <TabsTrigger value="neurology">Neurology</TabsTrigger>
-                    <TabsTrigger value="orthopedics">Orthopedics</TabsTrigger>
-                  </TabsList>
+                <Tabs value={selectedCourse} onValueChange={subjectLocked ? () => {} : setSelectedCourse} className="w-full">
+                  {!subjectLocked && (
+                    <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-8">
+                      <TabsTrigger value="radiology">Radiology</TabsTrigger>
+                      <TabsTrigger value="cardiology">Cardiology</TabsTrigger>
+                      <TabsTrigger value="neurology">Neurology</TabsTrigger>
+                      <TabsTrigger value="orthopedics">Orthopedics</TabsTrigger>
+                    </TabsList>
+                  )}
 
-                  {Object.entries(testsData).map(([courseId, test]) => (
-                    <TabsContent key={courseId} value={courseId} className="mt-0">
+                  {subjectLocked && (
+                    <div className="flex items-center justify-between glass-card p-4 mb-6">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Candidate</p>
+                        <p className="font-medium text-foreground">{incoming?.name} ({incoming?.email})</p>
+                        <p className="text-sm text-muted-foreground mt-1">Subject: <span className="font-medium capitalize">{subjectName}</span></p>
+                      </div>
+                      {remainingSec !== null && testStarted && !isTestSubmitted() && (
+                        <div className="text-right">
+                          <p className="text-sm text-muted-foreground">Time Remaining</p>
+                          <p className="font-display text-3xl font-bold text-foreground">{formatTime(Math.max(0, remainingSec))}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {isLoadingQuestions ? (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">Loading test questions...</p>
+                    </div>
+                  ) : (
+                    <TabsContent key={selectedCourse} value={selectedCourse} className="mt-0">
                       {/* Test Header */}
                       <div className="mb-8">
                         <div className="flex items-center gap-3 mb-6">
@@ -225,10 +474,10 @@ const Tests = () => {
                           </div>
                           <div>
                             <h2 className="font-display text-3xl font-bold text-foreground">
-                              {test.title}
+                              {subjectName} Assessment
                             </h2>
                             <p className="text-muted-foreground mt-1">
-                              {test.description}
+                              Analyze medical images and provide detailed descriptive answers based on your observations.
                             </p>
                           </div>
                         </div>
@@ -237,14 +486,14 @@ const Tests = () => {
                           <div className="flex flex-wrap gap-6 text-sm">
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <Clock size={16} />
-                              <span>Duration: {test.duration}</span>
+                              <span>Duration: {subjectDurationMins} minutes</span>
                             </div>
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <FileQuestion size={16} />
-                              <span>{test.questions.length} Image Cases</span>
+                              <span>{questions.length} Image Cases</span>
                             </div>
                           </div>
-                          {!isTestSubmitted() && (
+                          {!isTestSubmitted() && !testStarted && (
                             <div className="mt-4 p-4 bg-primary/5 rounded-lg border-l-4 border-primary">
                               <p className="text-sm text-foreground">
                                 <strong>Instructions:</strong> Carefully examine each image and provide a detailed descriptive answer. 
@@ -255,78 +504,127 @@ const Tests = () => {
                         </div>
                       </div>
 
-                      {/* Test Content */}
-                      {!isTestSubmitted() ? (
-                        <div className="space-y-8">
-                          {test.questions.map((question, index) => (
-                            <motion.div
-                              key={question.id}
-                              initial={{ opacity: 0, y: 20 }}
-                              whileInView={{ opacity: 1, y: 0 }}
-                              viewport={{ once: true }}
-                              transition={{ duration: 0.3, delay: index * 0.05 }}
-                              className="glass-card p-6"
-                            >
-                              <div className="flex gap-4 mb-4">
-                                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                                  {index + 1}
-                                </div>
-                                <div className="flex-1">
-                                  <h4 className="font-semibold text-foreground text-lg">
-                                    {question.question}
-                                  </h4>
-                                </div>
-                              </div>
-                              
-                              {/* Image */}
-                              <div className="mb-6 rounded-lg overflow-hidden border border-border/50">
-                                <img 
-                                  src={question.image} 
-                                  alt={`Case ${index + 1}`}
-                                  className="w-full h-auto object-contain bg-black"
-                                />
-                              </div>
-
-                              {/* Answer Input */}
-                              <div>
-                                <Label htmlFor={`answer-${courseId}-${question.id}`} className="text-sm font-medium text-foreground mb-2 block">
-                                  Your Answer:
-                                </Label>
-                                <Textarea
-                                  id={`answer-${courseId}-${question.id}`}
-                                  placeholder="Describe your findings, observations, and diagnosis in detail..."
-                                  value={getCurrentAnswers()[question.id] || ''}
-                                  onChange={(e) => handleAnswerChange(courseId, question.id, e.target.value)}
-                                  className="min-h-[150px] resize-y"
-                                />
-                                <p className="text-xs text-muted-foreground mt-2">
-                                  {getCurrentAnswers()[question.id]?.length || 0} characters
-                                </p>
-                              </div>
-                            </motion.div>
-                          ))}
-
-                          <div className="flex justify-center pt-6">
-                            <Button
-                              onClick={() => submitTest(courseId)}
-                              size="lg"
-                              disabled={
-                                Object.keys(getCurrentAnswers()).length !== test.questions.length || 
-                                Object.values(getCurrentAnswers()).some(a => !a.trim())
-                              }
-                              className="min-w-[200px]"
-                            >
-                              Submit Test
+                      {/* Start Test Button */}
+                      {!testStarted && !isTestSubmitted() && (
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <div className="glass-card p-8 text-center max-w-2xl">
+                            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                              <Clock className="text-primary" size={40} />
+                            </div>
+                            <h3 className="font-display text-2xl font-bold text-foreground mb-3">
+                              Ready to Begin?
+                            </h3>
+                            <p className="text-muted-foreground mb-2">
+                              You are about to start a <strong>{subjectDurationMins} minutes</strong> timed assessment with <strong>{questions.length} questions</strong>.
+                            </p>
+                            <p className="text-muted-foreground mb-6">
+                              Once you click "Start Test", the timer will begin and cannot be paused.
+                            </p>
+                            <Button onClick={startTest} size="lg" className="min-w-[200px]">
+                              Start Test
                             </Button>
                           </div>
-                          {(Object.keys(getCurrentAnswers()).length !== test.questions.length || 
-                            Object.values(getCurrentAnswers()).some(a => !a.trim())) && (
-                            <p className="text-center text-sm text-muted-foreground">
-                              Please provide answers for all questions to submit the test
-                            </p>
-                          )}
                         </div>
-                      ) : (
+                      )}
+
+                      {/* Test Content - One Question at a Time */}
+                      {testStarted && !isTestSubmitted() && questions.length > 0 ? (
+                        <div className="space-y-6">
+                          {/* Progress Indicator */}
+                          <div className="glass-card p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-foreground">
+                                Question {currentQuestionIndex + 1} of {questions.length}
+                              </span>
+                              <span className="text-sm text-muted-foreground">
+                                {Math.round(((currentQuestionIndex + 1) / questions.length) * 100)}% Complete
+                              </span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-2">
+                              <div 
+                                className="bg-primary h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Current Question */}
+                          <motion.div
+                            key={currentQuestionIndex}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="glass-card p-6"
+                          >
+                            <div className="flex gap-4 mb-4">
+                              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
+                                {currentQuestionIndex + 1}
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-foreground text-lg">
+                                  Examine this medical image and provide your analysis.
+                                </h4>
+                              </div>
+                            </div>
+                            
+                            {/* Image */}
+                            <div className="mb-6 rounded-lg overflow-hidden border border-border/50">
+                              <img 
+                                src={questions[currentQuestionIndex].question_image} 
+                                alt={`Case ${currentQuestionIndex + 1}`}
+                                className="w-full h-auto object-contain bg-black"
+                              />
+                            </div>
+
+                            {/* Answer Input */}
+                            <div>
+                              <Label htmlFor={`answer-current`} className="text-sm font-medium text-foreground mb-2 block">
+                                Your Answer:
+                              </Label>
+                              <Textarea
+                                id="answer-current"
+                                placeholder="Describe your findings, observations, and diagnosis in detail..."
+                                value={getCurrentAnswers()[questions[currentQuestionIndex].id] || ''}
+                                onChange={(e) => handleAnswerChange(selectedCourse, questions[currentQuestionIndex].id, e.target.value)}
+                                className="min-h-[150px] resize-y"
+                                disabled={submittingQuestion}
+                              />
+                              <p className="text-xs text-muted-foreground mt-2">
+                                {getCurrentAnswers()[questions[currentQuestionIndex].id]?.length || 0} characters
+                              </p>
+                            </div>
+                          </motion.div>
+
+                          {/* Navigation Buttons */}
+                          <div className="flex justify-between items-center pt-6">
+                            <Button
+                              onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
+                              variant="outline"
+                              disabled={currentQuestionIndex === 0 || submittingQuestion}
+                            >
+                              Previous Question
+                            </Button>
+
+                            <Button
+                              onClick={submitCurrentQuestion}
+                              size="lg"
+                              disabled={submittingQuestion || !getCurrentAnswers()[questions[currentQuestionIndex].id]?.trim()}
+                              className="min-w-[200px]"
+                            >
+                              {submittingQuestion ? (
+                                "Evaluating..."
+                              ) : currentQuestionIndex < questions.length - 1 ? (
+                                "Submit & Next Question"
+                              ) : (
+                                "Submit & Finish Test"
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {/* Test Results - Only show after submission */}
+                      {isTestSubmitted() && (
                         <div className="space-y-6">
                           {/* Results Summary */}
                           <div className="glass-card p-8 text-center border-2 border-primary/50">
@@ -340,7 +638,7 @@ const Tests = () => {
                               Your answers have been recorded. Review the sample answers below to compare your responses.
                             </p>
                             <div className="flex gap-4 justify-center">
-                              <Button onClick={() => resetTest(courseId)} variant="outline" size="lg">
+                              <Button onClick={() => resetTest(selectedCourse)} variant="outline" size="lg">
                                 Retake Test
                               </Button>
                               <Button size="lg">
@@ -354,8 +652,9 @@ const Tests = () => {
                             <h3 className="font-display text-2xl font-bold text-foreground">
                               Review Your Answers
                             </h3>
-                            {test.questions.map((question, index) => {
+                            {questions.map((question, index) => {
                               const userAnswer = getCurrentAnswers()[question.id];
+                              const aiResult = getCurrentAiResults()[question.id];
                               
                               return (
                                 <div
@@ -367,16 +666,26 @@ const Tests = () => {
                                       {index + 1}
                                     </div>
                                     <div className="flex-1">
-                                      <h4 className="font-semibold text-foreground text-lg mb-3">
-                                        {question.question}
-                                      </h4>
+                                      <div className="flex items-start justify-between">
+                                        <h4 className="font-semibold text-foreground text-lg mb-3">
+                                          Medical Image Analysis
+                                        </h4>
+                                        {aiResult && (
+                                          <div className="text-right ml-4">
+                                            <div className="text-2xl font-bold text-primary">
+                                              {aiResult.ai_score}/{question.max_marks}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">AI Score</div>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
 
                                   {/* Image */}
                                   <div className="mb-6 rounded-lg overflow-hidden border border-border/50 max-w-2xl">
                                     <img 
-                                      src={question.image} 
+                                      src={question.question_image} 
                                       alt={`Case ${index + 1}`}
                                       className="w-full h-auto object-contain bg-black"
                                     />
@@ -393,6 +702,24 @@ const Tests = () => {
                                     </div>
                                   </div>
 
+                                  {/* AI Feedback */}
+                                  {aiResult && (
+                                    <div className="mb-6 space-y-4">
+                                      <div className="bg-orange-500/5 p-4 rounded-lg border-l-4 border-orange-500">
+                                        <h5 className="text-sm font-semibold text-orange-700 dark:text-orange-400 mb-2">
+                                          Areas for Improvement:
+                                        </h5>
+                                        <p className="text-sm text-foreground">{aiResult.lost_marks}</p>
+                                      </div>
+                                      <div className="bg-green-500/5 p-4 rounded-lg border-l-4 border-green-500">
+                                        <h5 className="text-sm font-semibold text-green-700 dark:text-green-400 mb-2">
+                                          Suggestions:
+                                        </h5>
+                                        <p className="text-sm text-foreground">{aiResult.improvement}</p>
+                                      </div>
+                                    </div>
+                                  )}
+
                                   {/* Sample Answer */}
                                   <div className="mb-4">
                                     <h5 className="text-sm font-semibold text-primary mb-2 flex items-center gap-2">
@@ -400,21 +727,11 @@ const Tests = () => {
                                       Sample Expert Answer:
                                     </h5>
                                     <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
-                                      <p className="text-sm text-foreground whitespace-pre-wrap">{question.sampleAnswer}</p>
+                                      <p className="text-sm text-foreground whitespace-pre-wrap">{question.model_answer}</p>
                                     </div>
                                   </div>
 
-                                  {/* Key Points */}
-                                  <div className="bg-green-500/5 p-4 rounded-lg border-l-4 border-green-500">
-                                    <p className="text-sm font-semibold text-green-700 dark:text-green-400 mb-2">Key Points to Include:</p>
-                                    <div className="flex flex-wrap gap-2">
-                                      {question.keyPoints.map((point, idx) => (
-                                        <span key={idx} className="text-xs px-3 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20">
-                                          {point}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
+                                  {/* Key Points - removed since database doesn't have it */}
                                 </div>
                               );
                             })}
@@ -422,7 +739,7 @@ const Tests = () => {
                         </div>
                       )}
                     </TabsContent>
-                  ))}
+                  )}
                 </Tabs>
               </div>
             </div>

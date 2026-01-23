@@ -9,9 +9,11 @@ import Index from "./pages/Index";
 import Courses from "./pages/Courses";
 import CourseDetail from "./pages/CourseDetail";
 import Tests from "./pages/Tests";
+import StartTest from "./pages/StartTest";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
+import AdminQuestions from "./pages/AdminQuestions";
 import RequireAuth from "@/components/RequireAuth";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
@@ -32,8 +34,10 @@ const App = () => (
             <Route path="/courses" element={<Courses />} />
             <Route path="/courses/:id" element={<CourseDetail />} />
             <Route path="/tests" element={<Tests />} />
+            <Route path="/start-test" element={<StartTest />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/admin/questions" element={<AdminQuestions />} />
             <Route
               path="/dashboard"
               element={
