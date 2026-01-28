@@ -43,7 +43,7 @@ router.post("/",async(req,res)=>{
 
         console.log("Saving to submissions table...");
         const saved=await pool.query(
-            "INSERT INTO submissions (student_id,question_id,answer,ai_score,lost_marks,improvement) VALUES($1,$2,$3,$4,$5,$6) RETURNING*",
+            "INSERT INTO submissions (student_id,question_id,answer,ai_score,lost_marks,improvements) VALUES($1,$2,$3,$4,$5,$6) RETURNING*",
             [student_id,question_id,answer,ai.score,ai.lost_marks,ai.improvement]
         );
         
