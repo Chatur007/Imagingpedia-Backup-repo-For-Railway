@@ -32,6 +32,6 @@ app.use("/students",studentRoutes);
 app.use("/subjects",subjectRoutes);
 
 
-app.listen(port,()=>{
+app.listen(port,'0.0.0.0',()=>{
     console.log(`server started at ${port}`);
 });
