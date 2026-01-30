@@ -7,6 +7,8 @@ import questionRoutes from "./routes/questions.js";
 import submissionRoutes from "./routes/submission.js";
 import studentRoutes from "./routes/students.js";
 import subjectRoutes from "./routes/subjects.js";
+import path from "path";
+import fs from "fs";
 
 const port =process.env.PORT || 3000;
 const app=express();
@@ -25,6 +27,13 @@ origin: [
 credentials: true
 }));
 app.use(express.json());
+
+// Ensure uploads directory exists and serve it statically
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use("/uploads", express.static(uploadsDir));
 
 app.use("/questions",questionRoutes);
 app.use("/submission",submissionRoutes);

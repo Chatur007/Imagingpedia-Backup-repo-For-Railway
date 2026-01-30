@@ -1,6 +1,6 @@
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Trash2, Edit2, Lock } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
@@ -51,6 +51,16 @@ const AdminQuestions = () => {
     model_answer: "",
     max_marks: "10",
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (!selectedFile) return;
+    const preview = imagePreview;
+    return () => {
+      if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+    };
+  }, [selectedFile, imagePreview]);
   const [editingId, setEditingId] = useState<number | null>(null);
 
   
@@ -120,25 +130,48 @@ const AdminQuestions = () => {
     setIsLoading(true);
 
     try {
-      const payload = {
-        subject_id: parseInt(formData.subject_id),
-        question_text: formData.question_text,
-        question_image: formData.question_image,
-        model_answer: formData.model_answer,
-        max_marks: parseInt(formData.max_marks),
-      };
+      // If a file is selected, send multipart/form-data so backend can accept the file
+      let response: Response;
+      if (selectedFile) {
+        const fd = new FormData();
+        fd.append("file", selectedFile);
+        fd.append("subject_id", formData.subject_id);
+        fd.append("question_text", formData.question_text);
+        fd.append("question_image", formData.question_image || "");
+        fd.append("model_answer", formData.model_answer);
+        fd.append("max_marks", formData.max_marks);
 
-      const url = editingId
-        ? `${API_BASE_URL}/questions/${editingId}`
-        : `${API_BASE_URL}/questions`;
+        const url = editingId
+          ? `${API_BASE_URL}/questions/${editingId}`
+          : `${API_BASE_URL}/questions`;
 
-      const method = editingId ? "PUT" : "POST";
+        const method = editingId ? "PUT" : "POST";
 
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+        response = await fetch(url, {
+          method,
+          body: fd,
+        });
+      } else {
+        const payload = {
+          subject_id: parseInt(formData.subject_id),
+          question_text: formData.question_text,
+          question_image: formData.question_image,
+          model_answer: formData.model_answer,
+          max_marks: parseInt(formData.max_marks),
+        };
+
+        const url = editingId
+          ? `${API_BASE_URL}/questions/${editingId}`
+          : `${API_BASE_URL}/questions`;
+
+        const method = editingId ? "PUT" : "POST";
+
+        response = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
 
       if (response.ok) {
         alert(editingId ? "Question updated successfully!" : "Question added successfully!");
@@ -149,6 +182,8 @@ const AdminQuestions = () => {
           model_answer: "",
           max_marks: "10",
         });
+        setSelectedFile(null);
+        setImagePreview("");
         setEditingId(null);
         fetchQuestions();
       } else {
@@ -172,6 +207,8 @@ const AdminQuestions = () => {
       max_marks: question.max_marks.toString(),
     });
     setEditingId(question.id);
+    setSelectedFile(null);
+    setImagePreview(resolveImageUrl(question.question_image || ""));
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -209,6 +246,13 @@ const AdminQuestions = () => {
   const getSubjectName = (subjectId: number) => {
     const subject = subjects.find((s) => s.id === subjectId);
     return subject?.subject_name || "Unknown";
+  };
+
+  const resolveImageUrl = (url: string) => {
+    if (!url) return "";
+    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:") || url.startsWith("blob:")) return url;
+    if (url.startsWith("/uploads/")) return `${API_BASE_URL}${url}`;
+    return url;
   };
 
   // Admin login screen
@@ -351,22 +395,82 @@ const AdminQuestions = () => {
                         />
                       </div>
 
-                      {/* Question Image URL */}
+                      {/* Question Image (URL or upload) */}
                       <div>
                         <Label htmlFor="image" className="text-foreground">
-                          Question Image URL *
+                          Question Image (URL or upload)
                         </Label>
                         <Input
                           id="image"
                           type="url"
                           placeholder="https://example.com/image.jpg"
                           value={formData.question_image}
-                          onChange={(e) =>
-                            setFormData({ ...formData, question_image: e.target.value })
-                          }
+                          onChange={(e) => {
+                            setFormData({ ...formData, question_image: e.target.value });
+                            setSelectedFile(null);
+                            setImagePreview(resolveImageUrl(e.target.value));
+                          }}
                           className="mt-2"
-                          required
                         />
+
+                        <div className="mt-3">
+                          <Label className="text-foreground">Or upload file</Label>
+                          <div className="flex items-center gap-3 mt-2">
+                            <Button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                            >
+                              Choose File
+                            </Button>
+                            <input
+                              id="fileUpload"
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0] || null;
+                                if (f) {
+                                  setSelectedFile(f);
+                                  const url = URL.createObjectURL(f);
+                                  setImagePreview(url);
+                                  setFormData({ ...formData, question_image: "" });
+                                } else {
+                                  setSelectedFile(null);
+                                  setImagePreview("");
+                                }
+                              }}
+                              className="sr-only"
+                            />
+
+                            <span className="text-sm text-muted-foreground">
+                              {selectedFile ? selectedFile.name : formData.question_image ? "Using URL" : "No file chosen"}
+                            </span>
+
+                            {selectedFile && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedFile(null);
+                                  setImagePreview("");
+                                  if (fileInputRef.current) fileInputRef.current.value = "";
+                                }}
+                              >
+                                Remove
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        {imagePreview && (
+                          <div className="rounded overflow-hidden border border-border/50 mt-3">
+                            <img
+                              src={imagePreview}
+                              alt="Preview"
+                              className="w-full h-32 object-cover"
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* Model Answer */}
@@ -494,7 +598,7 @@ const AdminQuestions = () => {
                               {question.question_image && (
                                 <div className="rounded overflow-hidden border border-border/50">
                                   <img
-                                    src={question.question_image}
+                                    src={resolveImageUrl(question.question_image)}
                                     alt="Question"
                                     className="w-full h-32 object-cover"
                                   />

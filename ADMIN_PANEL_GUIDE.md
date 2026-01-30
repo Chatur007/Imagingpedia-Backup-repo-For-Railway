@@ -2,7 +2,7 @@
 
 ## Access the Admin Panel
 
-1. Navigate to: **http://localhost:3000/admin/questions** (after frontend is running on port 5173, go to the admin page from the UI or directly navigate)
+1. Navigate to: **http://localhost:8080/admin/questions** (after frontend is running on port 5173, go to the admin page from the UI or directly navigate)
 
 2. Enter the admin password: **`admin123`**
    - Change this in the file `src/pages/AdminQuestions.tsx` line 67 for production!

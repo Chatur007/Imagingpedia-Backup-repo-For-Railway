@@ -171,6 +171,13 @@ const Tests = () => {
 
   const currentTest = testsData[selectedCourse as keyof typeof testsData];
 
+  const resolveImageUrl = (url: string) => {
+    if (!url) return "";
+    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:") || url.startsWith("blob:")) return url;
+    if (url.startsWith("/uploads/")) return `${API_BASE_URL}${url}`;
+    return url;
+  };
+
   const subjectDurationMins = useMemo(() => {
     // Default 90 minutes for all tests
     return 90;
@@ -572,7 +579,7 @@ const Tests = () => {
                             {/* Image */}
                             <div className="mb-6 rounded-lg overflow-hidden border border-border/50">
                               <img 
-                                src={questions[currentQuestionIndex].question_image} 
+                                src={resolveImageUrl(questions[currentQuestionIndex].question_image)} 
                                 alt={`Case ${currentQuestionIndex + 1}`}
                                 className="w-full h-auto object-contain bg-black"
                               />
@@ -686,11 +693,11 @@ const Tests = () => {
 
                                   {/* Image */}
                                   <div className="mb-6 rounded-lg overflow-hidden border border-border/50 max-w-2xl">
-                                    <img 
-                                      src={question.question_image} 
-                                      alt={`Case ${index + 1}`}
-                                      className="w-full h-auto object-contain bg-black"
-                                    />
+                                      <img 
+                                        src={resolveImageUrl(question.question_image)} 
+                                        alt={`Case ${index + 1}`}
+                                        className="w-full h-auto object-contain bg-black"
+                                      />
                                   </div>
                                   
                                   {/* User's Answer */}
