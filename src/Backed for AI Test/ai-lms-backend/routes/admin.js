@@ -6,7 +6,7 @@ import { pool } from "../db.js";
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
-// Admin Login
+
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
@@ -18,7 +18,7 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Username and password are required" });
     }
 
-    // Find admin user
+
     console.log(`[Admin Login] Querying database for username: ${username}`);
     const result = await pool.query("SELECT * FROM admins WHERE username = $1", [username]);
 
@@ -31,7 +31,6 @@ router.post("/login", async (req, res) => {
     console.log(`[Admin Login] User found: ${admin.username}, email: ${admin.email}`);
     console.log(`[Admin Login] Stored hash: ${admin.password.substring(0, 20)}...`);
 
-    // Compare password
     console.log("[Admin Login] Comparing passwords with bcrypt...");
     const isPasswordValid = await bcrypt.compare(password, admin.password);
 
@@ -42,7 +41,6 @@ router.post("/login", async (req, res) => {
 
     console.log("[Admin Login] Password valid! Generating token...");
 
-    // Generate JWT token
     const token = jwt.sign(
       { id: admin.id, username: admin.username, email: admin.email },
       JWT_SECRET,
@@ -73,10 +71,8 @@ router.post("/create", async (req, res) => {
       return res.status(400).json({ error: "Username and password required" });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert admin
     const result = await pool.query(
       "INSERT INTO admins (username, password, email) VALUES ($1, $2, $3) RETURNING id, username, email",
       [username, hashedPassword, email]
@@ -95,7 +91,6 @@ router.post("/create", async (req, res) => {
   }
 });
 
-// Verify Admin Token
 router.post("/verify", (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
 
@@ -115,7 +110,6 @@ router.post("/verify", (req, res) => {
   }
 });
 
-// Admin Logout (client-side mainly, but we can invalidate token)
 router.post("/logout", (req, res) => {
   res.json({ success: true, message: "Logged out successfully" });
 });
