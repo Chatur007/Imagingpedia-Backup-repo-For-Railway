@@ -112,7 +112,7 @@ export const Navbar = () => {
 
         {/* Desktop CTA */}
         <div className="hidden md:flex items-center gap-3">
-          {authed ? (
+          {/* {authed ? (
             <>
               <span className="text-sm text-muted-foreground">Hello, {displayName.split(" ")[0]}</span>
               <Button variant="outline" asChild>
@@ -129,7 +129,10 @@ export const Navbar = () => {
                 <Link to="/signup">Start Learning</Link>
               </Button>
             </>
-          )}
+          )} */}
+          <Button variant="ghost" size="sm" asChild className="text-xs">
+            <Link to="/admin/login">Admin</Link>
+          </Button>
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -170,7 +173,7 @@ export const Navbar = () => {
                 <Link to="/start-test">Bigin Test</Link>
               </Button>
               <div className="flex flex-col gap-3 pt-4 border-t border-border/50">
-                {authed ? (
+                {/* {authed ? (
                   <>
                     <Button variant="outline" asChild className="w-full">
                       <Link to="/dashboard">Dashboard</Link>
@@ -188,7 +191,10 @@ export const Navbar = () => {
                       <Link to="/signup">Start Learning</Link>
                     </Button>
                   </>
-                )}
+                )} */}
+                <Button variant="ghost" asChild className="w-full text-xs">
+                  <Link to="/admin/login">Admin Login</Link>
+                </Button>
               </div>
             </nav>
           </motion.div>

@@ -15,7 +15,10 @@ import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import AdminQuestions from "./pages/AdminQuestions";
 import AdminCourses from "./pages/AdminCourses";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
 import RequireAuth from "@/components/RequireAuth";
+import RequireAdminAuth from "@/components/RequireAdminAuth";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
@@ -38,8 +41,31 @@ const App = () => (
             <Route path="/start-test" element={<StartTest />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            <Route path="/admin/questions" element={<AdminQuestions />} />
-            <Route path="/admin/courses" element={<AdminCourses />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route
+              path="/admin/dashboard"
+              element={
+                <RequireAdminAuth>
+                  <AdminDashboard />
+                </RequireAdminAuth>
+              }
+            />
+            <Route
+              path="/admin/questions"
+              element={
+                <RequireAdminAuth>
+                  <AdminQuestions />
+                </RequireAdminAuth>
+              }
+            />
+            <Route
+              path="/admin/courses"
+              element={
+                <RequireAdminAuth>
+                  <AdminCourses />
+                </RequireAdminAuth>
+              }
+            />
             <Route
               path="/dashboard"
               element={

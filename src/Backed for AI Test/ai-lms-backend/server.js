@@ -8,6 +8,7 @@ import submissionRoutes from "./routes/submission.js";
 import studentRoutes from "./routes/students.js";
 import subjectRoutes from "./routes/subjects.js";
 import courseRoutes from "./routes/courses.js";
+import adminRoutes from "./routes/admin.js";
 import path from "path";
 import fs from "fs";
 
@@ -41,6 +42,7 @@ app.use("/submission",submissionRoutes);
 app.use("/students",studentRoutes);
 app.use("/subjects",subjectRoutes);
 app.use("/courses",courseRoutes);
+app.use("/admin",adminRoutes);
 
 
 app.listen(port,'0.0.0.0',()=>{

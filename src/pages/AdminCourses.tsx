@@ -34,8 +34,7 @@ interface Course {
 const AdminCourses = () => {
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [adminPassword, setAdminPassword] = useState("");
-  const [showPasswordInput, setShowPasswordInput] = useState(true);
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
@@ -77,55 +76,51 @@ const AdminCourses = () => {
   const [editCourseImagePreview, setEditCourseImagePreview] = useState<string>("");
   const editCourseFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const ADMIN_PASSWORD = "admin123";
-
   useEffect(() => {
-    if (!selectedFile) return;
-    const preview = imagePreview;
-    return () => {
-      if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
-    };
-  }, [selectedFile, imagePreview]);
+    const checkAdminAuth = async () => {
+      const adminToken = localStorage.getItem("adminToken");
+      if (!adminToken) {
+        setIsAuthChecked(true);
+        navigate("/admin/login", { replace: true });
+        return;
+      }
 
-  useEffect(() => {
-    if (!editCourseFile) return;
-    const preview = editCourseImagePreview;
-    return () => {
-      if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
-    };
-  }, [editCourseFile, editCourseImagePreview]);
+      // Verify token with backend
+      try {
+        const response = await fetch(`${API_BASE_URL}/admin/verify`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+          },
+        });
 
-  useEffect(() => {
-    const checkAdminAuth = () => {
-      const isAdminAuthenticated = sessionStorage.getItem("adminAuthenticated");
-      if (isAdminAuthenticated) {
+        if (!response.ok) {
+          // Token is invalid or expired
+          localStorage.removeItem("adminToken");
+          localStorage.removeItem("admin");
+          setIsAuthChecked(true);
+          navigate("/admin/login", { replace: true });
+          return;
+        }
+
         setIsAdmin(true);
-        setShowPasswordInput(false);
+        setIsAuthChecked(true);
         fetchCourses();
+      } catch (error) {
+        console.error("Auth verification failed:", error);
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("admin");
+        setIsAuthChecked(true);
+        navigate("/admin/login", { replace: true });
       }
     };
     checkAdminAuth();
-  }, []);
+  }, [navigate]);
 
-  const handleAdminLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminPassword === ADMIN_PASSWORD) {
-      setIsAdmin(true);
-      setShowPasswordInput(false);
-      sessionStorage.setItem("adminAuthenticated", "true");
-      fetchCourses();
-    } else {
-      alert("Invalid admin password!");
-      setAdminPassword("");
-    }
-  };
-
-  const handleAdminLogout = () => {
-    setIsAdmin(false);
-    setShowPasswordInput(true);
-    setAdminPassword("");
-    sessionStorage.removeItem("adminAuthenticated");
-    navigate("/");
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("admin");
+    navigate("/admin/login", { replace: true });
   };
 
   const fetchCourses = async () => {
@@ -410,55 +405,29 @@ const AdminCourses = () => {
   };
 
   // Admin login screen
-  if (showPasswordInput) {
+  if (!isAdmin) {
     return (
-      <>
-        <Helmet>
-          <title>Admin Login - Courses - Imagingpedia</title>
-        </Helmet>
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <Navbar />
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="w-full max-w-md px-4"
-          >
-            <Card className="p-8">
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mx-auto mb-6">
-                <Lock className="text-primary" size={24} />
-              </div>
-              <h2 className="text-2xl font-bold text-center text-foreground mb-2">
-                Admin Access
-              </h2>
-              <p className="text-center text-muted-foreground mb-6">
-                Enter admin password to access course management
-              </p>
-
-              <form onSubmit={handleAdminLogin} className="space-y-4">
-                <div>
-                  <Label htmlFor="password" className="text-foreground">
-                    Admin Password
-                  </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter admin password"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    className="mt-2"
-                  />
-                </div>
-                <Button type="submit" className="w-full">
-                  Login
-                </Button>
-              </form>
-            </Card>
-          </motion.div>
-          <Footer />
-        </div>
-      </>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Redirecting to login...</p>
+      </div>
     );
+  }
+
+  // Show loading while checking authentication
+  if (!isAuthChecked) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto mb-4 animate-pulse" />
+          <p className="text-muted-foreground">Verifying access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not admin after auth check, don't render (already redirected)
+  if (!isAdmin) {
+    return null;
   }
 
   // Admin dashboard
@@ -488,7 +457,7 @@ const AdminCourses = () => {
                     Create courses, add videos, and manage course content
                   </p>
                 </motion.div>
-                <Button onClick={handleAdminLogout} variant="outline">
+                <Button onClick={handleLogout} variant="outline">
                   Logout
                 </Button>
               </div>

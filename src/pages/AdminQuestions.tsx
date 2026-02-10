@@ -37,8 +37,7 @@ interface Subject {
 const AdminQuestions = () => {
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [adminPassword, setAdminPassword] = useState("");
-  const [showPasswordInput, setShowPasswordInput] = useState(true);
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -65,42 +64,52 @@ const AdminQuestions = () => {
   const [newSubjectName, setNewSubjectName] = useState("");
   const [isCreatingSubject, setIsCreatingSubject] = useState(false);
 
-  
-  const ADMIN_PASSWORD = "admin123"; 
-
   useEffect(() => {
-    const checkAdminAuth = () => {
-      const isAdminAuthenticated = sessionStorage.getItem("adminAuthenticated");
-      if (isAdminAuthenticated) {
+    const checkAdminAuth = async () => {
+      const adminToken = localStorage.getItem("adminToken");
+      if (!adminToken) {
+        setIsAuthChecked(true);
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+
+      // Verify token with backend
+      try {
+        const response = await fetch(`${API_BASE_URL}/admin/verify`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          // Token is invalid or expired
+          localStorage.removeItem("adminToken");
+          localStorage.removeItem("admin");
+          setIsAuthChecked(true);
+          navigate("/admin/login", { replace: true });
+          return;
+        }
+
         setIsAdmin(true);
-        setShowPasswordInput(false);
+        setIsAuthChecked(true);
         fetchSubjects();
         fetchQuestions();
+      } catch (error) {
+        console.error("Auth verification failed:", error);
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("admin");
+        setIsAuthChecked(true);
+        navigate("/admin/login", { replace: true });
       }
     };
     checkAdminAuth();
-  }, []);
+  }, [navigate]);
 
-  const handleAdminLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminPassword === ADMIN_PASSWORD) {
-      setIsAdmin(true);
-      setShowPasswordInput(false);
-      sessionStorage.setItem("adminAuthenticated", "true");
-      fetchSubjects();
-      fetchQuestions();
-    } else {
-      alert("Invalid admin password!");
-      setAdminPassword("");
-    }
-  };
-
-  const handleAdminLogout = () => {
-    setIsAdmin(false);
-    setShowPasswordInput(true);
-    setAdminPassword("");
-    sessionStorage.removeItem("adminAuthenticated");
-    navigate("/");
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("admin");
+    navigate("/admin/login", { replace: true });
   };
 
   const fetchSubjects = async () => {
@@ -315,56 +324,21 @@ const AdminQuestions = () => {
     return url;
   };
 
-  // Admin login screen
-  if (showPasswordInput) {
+  // Show loading while checking authentication
+  if (!isAuthChecked) {
     return (
-      <>
-        <Helmet>
-          <title>Admin Login - Imagingpedia</title>
-        </Helmet>
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <Navbar />
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="w-full max-w-md px-4"
-          >
-            <Card className="p-8">
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mx-auto mb-6">
-                <Lock className="text-primary" size={24} />
-              </div>
-              <h2 className="text-2xl font-bold text-center text-foreground mb-2">
-                Admin Access
-              </h2>
-              <p className="text-center text-muted-foreground mb-6">
-                Enter admin password to access question management
-              </p>
-
-              <form onSubmit={handleAdminLogin} className="space-y-4">
-                <div>
-                  <Label htmlFor="password" className="text-foreground">
-                    Admin Password
-                  </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter admin password"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    className="mt-2"
-                  />
-                </div>
-                <Button type="submit" className="w-full">
-                  Login
-                </Button>
-              </form>
-            </Card>
-          </motion.div>
-          <Footer />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto mb-4 animate-pulse" />
+          <p className="text-muted-foreground">Verifying access...</p>
         </div>
-      </>
+      </div>
     );
+  }
+
+  // If not admin after auth check, don't render (already redirected)
+  if (!isAdmin) {
+    return null;
   }
 
   // Admin dashboard
@@ -394,7 +368,7 @@ const AdminQuestions = () => {
                     Add, edit, or delete questions from the database
                   </p>
                 </motion.div>
-                <Button onClick={handleAdminLogout} variant="outline">
+                <Button onClick={handleLogout} variant="outline">
                   Logout
                 </Button>
               </div>

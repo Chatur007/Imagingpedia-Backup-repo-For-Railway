@@ -1,6 +1,16 @@
 -- Database Schema for Courses Management System
 -- Execute these SQL commands in your PostgreSQL database
 
+-- 0. Create admins table (for admin authentication)
+CREATE TABLE IF NOT EXISTS admins (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 1. Create courses table
 CREATE TABLE IF NOT EXISTS courses (
     id SERIAL PRIMARY KEY,
@@ -58,6 +68,7 @@ INSERT INTO course_images (course_id, image_url, image_title, image_order) VALUE
 ON CONFLICT DO NOTHING;
 
 -- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_admins_username ON admins(username);
 CREATE INDEX IF NOT EXISTS idx_courses_created_at ON courses(created_at);
 CREATE INDEX IF NOT EXISTS idx_course_videos_course_id ON course_videos(course_id);
 CREATE INDEX IF NOT EXISTS idx_course_images_course_id ON course_images(course_id);
