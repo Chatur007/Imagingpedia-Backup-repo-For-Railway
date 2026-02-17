@@ -6,7 +6,7 @@ import { pool } from "../db.js";
 
 const router = express.Router();
 
-// Configure multer disk storage
+
 const uploadsPath = path.join(process.cwd(), "uploads");
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -20,7 +20,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Get all questions
 router.get("/", async (req, res) => {
   try {
     const result = await pool.query(
@@ -33,7 +32,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Get all questions for a subject
+
 router.get("/subject/:subjectId", async (req, res) => {
   try {
     const { subjectId } = req.params;
@@ -48,7 +47,7 @@ router.get("/subject/:subjectId", async (req, res) => {
   }
 });
 
-// Get single question by ID
+
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -91,13 +90,12 @@ router.post("/", upload.single("file"), async (req, res) => {
   }
 });
 
-// Update a question (accepts file)
+
 router.put("/:id", upload.single("file"), async (req, res) => {
   try {
     const { id } = req.params;
     const { subject_id, question_text, question_image, model_answer, max_marks } = req.body;
 
-    // Check if question exists
     const exists = await pool.query("SELECT * FROM questions WHERE id = $1", [id]);
     if (exists.rows.length === 0) {
       return res.status(404).json({ error: "Question not found" });
@@ -105,11 +103,11 @@ router.put("/:id", upload.single("file"), async (req, res) => {
 
     let imagePath = question_image || exists.rows[0].question_image || null;
     if (req.file) {
-      // remove old file if it was stored in /uploads
+ 
       const oldPath = exists.rows[0].question_image;
       if (oldPath && oldPath.startsWith("/uploads/")) {
         const oldFile = path.join(process.cwd(), oldPath.replace("/", ""));
-        try { fs.unlinkSync(oldFile); } catch (e) { /* ignore */ }
+        try { fs.unlinkSync(oldFile); } catch (e) {  }
       }
       imagePath = `/uploads/${req.file.filename}`;
     }
@@ -127,22 +125,22 @@ router.put("/:id", upload.single("file"), async (req, res) => {
   }
 });
 
-// Delete a question
+
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Check if question exists
+ 
     const exists = await pool.query("SELECT * FROM questions WHERE id = $1", [id]);
     if (exists.rows.length === 0) {
       return res.status(404).json({ error: "Question not found" });
     }
 
-    // If question_image points to uploads, remove the file
+
     const img = exists.rows[0].question_image;
     if (img && img.startsWith("/uploads/")) {
       const fileOnDisk = path.join(process.cwd(), img.replace("/", ""));
-      try { fs.unlinkSync(fileOnDisk); } catch (e) { /* ignore */ }
+      try { fs.unlinkSync(fileOnDisk); } catch (e) {  }
     }
 
     await pool.query("DELETE FROM questions WHERE id = $1", [id]);

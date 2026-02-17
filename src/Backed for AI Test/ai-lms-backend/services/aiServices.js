@@ -110,13 +110,11 @@ IMPORTANT: Return ONLY the JSON object, nothing else. No markdown, no code block
     console.log("Response Status:", response.status);
     console.log("Full API Response:", JSON.stringify(response.data, null, 2));
 
-    // Extract message content
     const messageContent = response.data.choices?.[0]?.message?.content;
     console.log("Raw Message Content Type:", typeof messageContent);
     console.log("Raw Message Content Length:", messageContent?.length || 0);
     console.log("Raw Message Content:", messageContent);
 
-    // Validate message content exists and is not empty
     if (!messageContent || messageContent.trim() === "" || messageContent.trim() === "null") {
       console.error("Empty or null message content from AI");
       console.error("Full response data:", response.data);
@@ -127,7 +125,6 @@ IMPORTANT: Return ONLY the JSON object, nothing else. No markdown, no code block
       };
     }
 
-    // Clean the content - remove markdown code blocks and trim
     let cleanedContent = messageContent
       .trim()
       .replace(/```json\n?/g, "")
@@ -137,7 +134,6 @@ IMPORTANT: Return ONLY the JSON object, nothing else. No markdown, no code block
     console.log("Cleaned Content:", cleanedContent);
     console.log("Cleaned Content Length:", cleanedContent.length);
 
-    // Additional validation
     if (!cleanedContent.startsWith("{") || !cleanedContent.endsWith("}")) {
       console.error("Content is not valid JSON format");
       console.error("Expected JSON object, got:", cleanedContent.substring(0, 100));
@@ -148,7 +144,7 @@ IMPORTANT: Return ONLY the JSON object, nothing else. No markdown, no code block
       };
     }
 
-    // Parse JSON
+ 
     let result;
     try {
       result = JSON.parse(cleanedContent);
@@ -164,13 +160,11 @@ IMPORTANT: Return ONLY the JSON object, nothing else. No markdown, no code block
       };
     }
 
-    // Validate result has required fields
     if (!result.hasOwnProperty("score") || result.score === undefined) {
       console.error("Missing 'score' field in result");
       result.score = Math.floor(marks / 2);
     }
-    
-    // Check if answer got full marks
+ 
     const isPerfectScore = result.score >= marks;
     
     if (!result.hasOwnProperty("lost_marks") || result.lost_marks === undefined || typeof result.lost_marks !== 'string' || result.lost_marks.trim() === '') {
@@ -195,7 +189,6 @@ IMPORTANT: Return ONLY the JSON object, nothing else. No markdown, no code block
     console.error("FATAL Evaluation error:", error.message);
     console.error("Error details:", error.response?.data || error.stack);
 
-    // Return default response instead of throwing
     return {
       score: 0,
       lost_marks: "Evaluation service encountered an error. Please try again.",

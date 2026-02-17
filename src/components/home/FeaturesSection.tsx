@@ -1,37 +1,37 @@
 import { motion } from "framer-motion";
-import { BookOpen, Video, FileText, Trophy, Shield, Users } from "lucide-react";
+import { BookOpen, Video, FileText, Trophy, Shield, Users,Brain,BookCopy,ChartNoAxesCombined,Microscope } from "lucide-react";
 
 const features = [
   {
-    icon: Video,
-    title: "Secure Video Streaming",
-    description: "DRM-protected content with token-based playback. Your learning materials are safe and non-downloadable.",
+    icon: Brain,
+    title: "Adaptive Exam Engine",
+    description: "AI identifies weak areas and automatically adjusts difficulty and case selection.",
   },
   {
-    icon: BookOpen,
-    title: "Comprehensive Courses",
-    description: "From radiology to anatomy, access in-depth modules designed by medical professionals.",
+    icon: BookCopy,
+    title: "Intelligent Case Simulation",
+    description: "CT, MRI, and ultrasound cases with AI-generated structured reporting feedback.",
   },
   {
-    icon: FileText,
-    title: "Notes & Resources",
-    description: "Downloadable study materials, lecture notes, and reference guides for each course.",
+    icon: ChartNoAxesCombined,
+    title: "Performance Analytics",
+    description: "Real time exam scoring, percentile benchmarking, and knowledge-gap mapping.",
   },
   {
-    icon: Trophy,
-    title: "Certification Exams",
-    description: "Timed MCQ tests with auto-evaluation. Get certified upon successful completion.",
+    icon: Microscope,
+    title: "Image Guided Procedure Pathways",
+    description: "Step by step IR modules with complication scenarios and decision tree learning.",
   },
-  {
-    icon: Shield,
-    title: "Progress Tracking",
-    description: "Monitor your learning journey with detailed progress analytics and completion badges.",
-  },
-  {
-    icon: Users,
-    title: "Expert Instructors",
-    description: "Learn from practicing radiologists, anatomists, and medical imaging specialists.",
-  },
+  // {
+  //   icon: Shield,
+  //   title: "Progress Tracking",
+  //   description: "Monitor your learning journey with detailed progress analytics and completion badges.",
+  // },
+  // {
+  //   icon: Users,
+  //   title: "Expert Instructors",
+  //   description: "Learn from practicing radiologists, anatomists, and medical imaging specialists.",
+  // },
 ];
 
 const containerVariants = {
@@ -82,7 +82,7 @@ export const FeaturesSection = () => {
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6"
         >
           {features.map((feature, index) => (
             <motion.div

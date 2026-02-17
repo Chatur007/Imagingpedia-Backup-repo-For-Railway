@@ -4,13 +4,10 @@ const run = async () => {
   try {
     console.log('Running migration: add question_text column if missing');
 
-    // Add column if not exists
     await pool.query(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS question_text TEXT;`);
 
-    // Fill any NULLs with a default placeholder
     await pool.query(`UPDATE questions SET question_text = 'Describe the image' WHERE question_text IS NULL;`);
 
-    // Make column NOT NULL (safe because we've filled NULLs)
     await pool.query(`ALTER TABLE questions ALTER COLUMN question_text SET NOT NULL;`);
 
     console.log('Migration completed successfully');

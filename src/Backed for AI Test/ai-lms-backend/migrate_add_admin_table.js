@@ -3,7 +3,6 @@ import bcrypt from "bcrypt";
 
 async function addAdminTable() {
   try {
-    // Create admin table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admins (
         id SERIAL PRIMARY KEY,
@@ -16,8 +15,6 @@ async function addAdminTable() {
     `);
     
     console.log("Admin table created successfully");
-
-    // Insert default admin user (username: admin, password: admin123)
     const hashedPassword = await bcrypt.hash("admin123", 10);
     const result = await pool.query(
       "INSERT INTO admins (username, email, password) VALUES ($1, $2, $3) ON CONFLICT (username) DO NOTHING RETURNING *",

@@ -30,7 +30,6 @@ credentials: true
 }));
 app.use(express.json());
 
-// Ensure uploads directory exists and serve it statically
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });

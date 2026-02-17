@@ -6,7 +6,7 @@ import { pool } from "../db.js";
 
 const router = express.Router();
 
-// Configure multer disk storage
+
 const uploadsPath = path.join(process.cwd(), "uploads");
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -20,7 +20,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Get all courses
+
 router.get("/", async (req, res) => {
   try {
     const result = await pool.query(`
@@ -40,7 +40,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Get a single course with its videos and images
+
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -64,7 +64,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Create a new course
+
 router.post("/", upload.single("file"), async (req, res) => {
   try {
     const { course_name, course_description, course_image } = req.body;
@@ -90,13 +90,13 @@ router.post("/", upload.single("file"), async (req, res) => {
   }
 });
 
-// Update a course
+
 router.put("/:id", upload.single("file"), async (req, res) => {
   try {
     const { id } = req.params;
     const { course_name, course_description, course_image } = req.body;
 
-    // Check if course exists
+
     const exists = await pool.query("SELECT * FROM courses WHERE id = $1", [id]);
     if (exists.rows.length === 0) {
       return res.status(404).json({ error: "Course not found" });
@@ -104,11 +104,11 @@ router.put("/:id", upload.single("file"), async (req, res) => {
 
     let imagePath = course_image || exists.rows[0].course_image || null;
     if (req.file) {
-      // Remove old file if it was stored in /uploads
+
       const oldPath = exists.rows[0].course_image;
       if (oldPath && oldPath.startsWith("/uploads/")) {
         const oldFile = path.join(process.cwd(), oldPath.replace("/", ""));
-        try { fs.unlinkSync(oldFile); } catch (e) { /* ignore */ }
+        try { fs.unlinkSync(oldFile); } catch (e) {  }
       }
       imagePath = `/uploads/${req.file.filename}`;
     }
@@ -129,7 +129,7 @@ router.put("/:id", upload.single("file"), async (req, res) => {
   }
 });
 
-// Delete a course and all related data
+
 router.delete("/:id", async (req, res) => {
   const client = await pool.connect();
   try {
@@ -137,29 +137,29 @@ router.delete("/:id", async (req, res) => {
 
     await client.query("BEGIN");
 
-    // Check if course exists
+ 
     const courseCheck = await client.query("SELECT * FROM courses WHERE id = $1", [id]);
     if (courseCheck.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Course not found" });
     }
 
-    // Remove course image file if it exists
+ 
     const courseImage = courseCheck.rows[0].course_image;
     if (courseImage && courseImage.startsWith("/uploads/")) {
       const fileOnDisk = path.join(process.cwd(), courseImage.replace("/", ""));
-      try { fs.unlinkSync(fileOnDisk); } catch (e) { /* ignore */ }
+      try { fs.unlinkSync(fileOnDisk); } catch (e) { }
     }
 
-    // Delete images
+
     const imagesResult = await client.query("DELETE FROM course_images WHERE course_id = $1", [id]);
     console.log(`Deleted ${imagesResult.rowCount} images`);
 
-    // Delete videos
+   
     const videosResult = await client.query("DELETE FROM course_videos WHERE course_id = $1", [id]);
     console.log(`Deleted ${videosResult.rowCount} videos`);
 
-    // Delete the course
+
     const result = await client.query("DELETE FROM courses WHERE id = $1 RETURNING *", [id]);
 
     await client.query("COMMIT");
@@ -178,7 +178,7 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// Add video to course
+
 router.post("/:courseId/videos", async (req, res) => {
   try {
     const { courseId } = req.params;
@@ -188,7 +188,7 @@ router.post("/:courseId/videos", async (req, res) => {
       return res.status(400).json({ error: "Video title and URL are required" });
     }
 
-    // Validate YouTube URL format
+  
     if (!video_url.includes("youtube.com/embed/") && !video_url.includes("youtu.be/")) {
       return res.status(400).json({ error: "Invalid YouTube URL format. Please use embed format." });
     }
@@ -205,7 +205,7 @@ router.post("/:courseId/videos", async (req, res) => {
   }
 });
 
-// Update video
+
 router.put("/:courseId/videos/:videoId", async (req, res) => {
   try {
     const { videoId } = req.params;
@@ -227,7 +227,7 @@ router.put("/:courseId/videos/:videoId", async (req, res) => {
   }
 });
 
-// Delete video
+
 router.delete("/:courseId/videos/:videoId", async (req, res) => {
   try {
     const { videoId } = req.params;
@@ -245,7 +245,7 @@ router.delete("/:courseId/videos/:videoId", async (req, res) => {
   }
 });
 
-// Add image to course
+
 router.post("/:courseId/images", async (req, res) => {
   try {
     const { courseId } = req.params;
@@ -267,7 +267,7 @@ router.post("/:courseId/images", async (req, res) => {
   }
 });
 
-// Update image
+
 router.put("/:courseId/images/:imageId", async (req, res) => {
   try {
     const { imageId } = req.params;
@@ -289,7 +289,7 @@ router.put("/:courseId/images/:imageId", async (req, res) => {
   }
 });
 
-// Delete image
+
 router.delete("/:courseId/images/:imageId", async (req, res) => {
   try {
     const { imageId } = req.params;
@@ -307,7 +307,7 @@ router.delete("/:courseId/images/:imageId", async (req, res) => {
   }
 });
 
-// Get course statistics
+
 router.get("/:id/stats", async (req, res) => {
   try {
     const { id } = req.params;

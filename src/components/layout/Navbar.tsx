@@ -9,8 +9,8 @@ import { toast } from "@/hooks/use-toast";
 
 const navLinks = [
   { name: "Home", path: "/" },
-  { name: "Courses", path: "/courses" },
-  { name: "Tests", path: "/tests" },
+  { name: "Image Guided Procedures", path: "/courses" },
+  { name: "Question Banks", path: "/tests" },
   { name: "About", path: "/about" },
   { name: "Contact", path: "/contact" },
 ];
@@ -76,14 +76,14 @@ export const Navbar = () => {
              <span className="text-primary font-display font-bold text-xl">I</span>
             <img src="/Logo_3-removebg-preview.png" alt="logo" />
           </div> */}
-             <div className="w-20 h-20 flex items-center justify-center">
+             {/* <div className="w-20 h-20 flex items-center justify-center"> */}
             {/* <span className="text-primary font-display font-bold text-xl">I</span> */}
-            <img 
+            {/* <img 
               src="/logo.png" 
               alt="logo" 
               className="w-full h-full object-contain"
             />
-          </div>
+          </div> */}
           <span className="font-display text-2xl font-semibold text-foreground" style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 600 }}>
             Imaging<span className="text-primary">pedia</span>
           </span>
@@ -106,7 +106,7 @@ export const Navbar = () => {
             </Link>
           ))}
           <Button asChild size="sm" className="ml-2">
-            <Link to="/start-test">Bigin Test</Link>
+            <Link to="/start-test">Exam Tracks</Link>
           </Button>
         </nav>
 
@@ -170,7 +170,7 @@ export const Navbar = () => {
                 </Link>
               ))}
               <Button asChild className="w-full mt-2">
-                <Link to="/start-test">Bigin Test</Link>
+                <Link to="/start-test">Exam Tracks</Link>
               </Button>
               <div className="flex flex-col gap-3 pt-4 border-t border-border/50">
                 {/* {authed ? (

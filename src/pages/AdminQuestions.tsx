@@ -32,6 +32,9 @@ interface Question {
 interface Subject {
   id: number;
   subject_name: string;
+  parent_id?: number | null;
+  subject_description?: string;
+  display_order?: number;
 }
 
 const AdminQuestions = () => {
@@ -41,6 +44,7 @@ const AdminQuestions = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -63,18 +67,26 @@ const AdminQuestions = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newSubjectName, setNewSubjectName] = useState("");
   const [isCreatingSubject, setIsCreatingSubject] = useState(false);
+  const [newSubSubjectName, setNewSubSubjectName] = useState("");
+  const [newSubSubjectParentId, setNewSubSubjectParentId] = useState<string>("");
+  const [newSubSubjectDescription, setNewSubSubjectDescription] = useState("");
+  const [isCreatingSubSubject, setIsCreatingSubSubject] = useState(false);
 
   useEffect(() => {
     const checkAdminAuth = async () => {
       const adminToken = localStorage.getItem("adminToken");
+      console.log("[AdminQ] Token exists:", !!adminToken, "API URL:", API_BASE_URL);
+      
       if (!adminToken) {
+        console.log("[AdminQ] No token, redirecting to login");
+        setAuthError("No admin token found. Please log in.");
         setIsAuthChecked(true);
-        navigate("/admin/login", { replace: true });
+        setTimeout(() => navigate("/admin/login", { replace: true }), 2000);
         return;
       }
 
-      // Verify token with backend
       try {
+        console.log("[AdminQ] Verifying token...");
         const response = await fetch(`${API_BASE_URL}/admin/verify`, {
           method: "POST",
           headers: {
@@ -82,25 +94,32 @@ const AdminQuestions = () => {
           },
         });
 
+        console.log("[AdminQ] Verify response:", response.status);
+
         if (!response.ok) {
-          // Token is invalid or expired
+          const errorBody = await response.text();
+          console.error("[AdminQ] Verify failed:", errorBody);
           localStorage.removeItem("adminToken");
           localStorage.removeItem("admin");
+          setAuthError("Session expired. Please log in again.");
           setIsAuthChecked(true);
-          navigate("/admin/login", { replace: true });
+          setTimeout(() => navigate("/admin/login", { replace: true }), 2000);
           return;
         }
 
+        console.log("[AdminQ] Auth successful");
         setIsAdmin(true);
+        setAuthError(null);
         setIsAuthChecked(true);
         fetchSubjects();
         fetchQuestions();
       } catch (error) {
-        console.error("Auth verification failed:", error);
-        localStorage.removeItem("adminToken");
-        localStorage.removeItem("admin");
+        console.error("[AdminQ] Auth error:", error);
+        setAuthError(
+          "Failed to verify session: " +
+          (error instanceof Error ? error.message : "Connection error")
+        );
         setIsAuthChecked(true);
-        navigate("/admin/login", { replace: true });
       }
     };
     checkAdminAuth();
@@ -141,7 +160,6 @@ const AdminQuestions = () => {
     setIsLoading(true);
 
     try {
-      // If a file is selected, send multipart/form-data so backend can accept the file
       let response: Response;
       if (selectedFile) {
         const fd = new FormData();
@@ -297,6 +315,57 @@ const AdminQuestions = () => {
     }
   };
 
+  const handleCreateSubSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newSubSubjectName.trim()) {
+      alert("Please enter a sub-subject name");
+      return;
+    }
+
+    if (!newSubSubjectParentId) {
+      alert("Please select a parent subject");
+      return;
+    }
+
+    setIsCreatingSubSubject(true);
+    try {
+      const payload = {
+        subject_name: newSubSubjectName,
+        subject_description: newSubSubjectDescription || null,
+        parent_id: parseInt(newSubSubjectParentId),
+        display_order: 0,
+      };
+
+      const response = await fetch(`${API_BASE_URL}/subjects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        alert("Sub-subject created successfully!");
+        setNewSubSubjectName("");
+        setNewSubSubjectDescription("");
+        setNewSubSubjectParentId("");
+        fetchSubjects();
+      } else {
+        const errorBody = await response.text();
+        try {
+          const errorData = JSON.parse(errorBody);
+          alert("Error: " + (errorData.error || "Failed to create sub-subject"));
+        } catch {
+          alert("Error: " + errorBody);
+        }
+      }
+    } catch (error) {
+      console.error("Error creating sub-subject:", error);
+      alert("Failed to create sub-subject");
+    } finally {
+      setIsCreatingSubSubject(false);
+    }
+  };
+
   const handleCancel = () => {
     setEditingId(null);
     setFormData({
@@ -316,15 +385,11 @@ const AdminQuestions = () => {
   const resolveImageUrl = (url: string) => {
     if (!url) return "";
     if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:") || url.startsWith("blob:")) return url;
-    // If stored as '/uploads/...' prefix with API base
     if (url.startsWith("/uploads/")) return `${API_BASE_URL}${url}`;
-    // If stored as bare filename (e.g. 'abc.png'), assume it's in uploads
     if (!url.includes("/")) return `${API_BASE_URL}/uploads/${url}`;
-    // Otherwise return as-is
     return url;
   };
 
-  // Show loading while checking authentication
   if (!isAuthChecked) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -336,12 +401,27 @@ const AdminQuestions = () => {
     );
   }
 
-  // If not admin after auth check, don't render (already redirected)
-  if (!isAdmin) {
-    return null;
+  if (authError || !isAdmin) {
+    return (
+      <>
+        <Helmet>
+          <title>Admin - Access Denied - Imagingpedia</title>
+        </Helmet>
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="text-center max-w-md">
+            <Lock size={48} className="mx-auto mb-4 text-red-500" />
+            <h1 className="text-2xl font-bold text-foreground mb-2">Access Denied</h1>
+            <p className="text-muted-foreground mb-4">
+              {authError || "You do not have permission to access this page."}
+            </p>
+            <p className="text-sm text-muted-foreground mb-6">Redirecting to login...</p>
+            <Button onClick={() => navigate("/admin/login")}>Go to Login</Button>
+          </div>
+        </div>
+      </>
+    );
   }
 
-  // Admin dashboard
   return (
     <>
       <Helmet>
@@ -408,28 +488,158 @@ const AdminQuestions = () => {
                       </form>
                     </div>
 
+                    {/* Add Sub-Subject Form */}
+                    <div className="mb-8 p-4 rounded-lg bg-blue-50/30 border border-blue-200/50 dark:bg-blue-900/20 dark:border-blue-800/50">
+                      <h3 className="text-lg font-semibold text-foreground mb-4">Add Sub-Subject Under Parent</h3>
+                      <form onSubmit={handleCreateSubSubject} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Parent Subject Selection */}
+                          <div>
+                            <Label htmlFor="parentSubject">Select Parent Subject *</Label>
+                            <Select
+                              value={newSubSubjectParentId}
+                              onValueChange={setNewSubSubjectParentId}
+                            >
+                              <SelectTrigger className="mt-2">
+                                <SelectValue placeholder="Choose a parent subject" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {subjects
+                                  .filter((s) => !s.parent_id)
+                                  .map((subject) => (
+                                    <SelectItem
+                                      key={subject.id}
+                                      value={subject.id.toString()}
+                                    >
+                                      {subject.subject_name}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Sub-Subject Name */}
+                          <div>
+                            <Label htmlFor="subSubjectName">Sub-Subject Name *</Label>
+                            <Input
+                              id="subSubjectName"
+                              type="text"
+                              placeholder="e.g., Short Cases, Long Cases"
+                              value={newSubSubjectName}
+                              onChange={(e) => setNewSubSubjectName(e.target.value)}
+                              className="mt-2"
+                              required
+                            />
+                          </div>
+
+                          {/* Description */}
+                          <div className="md:col-span-2">
+                            <Label htmlFor="subSubjectDescription">Description (Optional)</Label>
+                            <Textarea
+                              id="subSubjectDescription"
+                              placeholder="Brief description of this sub-subject"
+                              value={newSubSubjectDescription}
+                              onChange={(e) => setNewSubSubjectDescription(e.target.value)}
+                              className="mt-2 min-h-[60px]"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end">
+                          <Button
+                            type="submit"
+                            disabled={isCreatingSubSubject || !newSubSubjectParentId}
+                            className="whitespace-nowrap"
+                          >
+                            {isCreatingSubSubject ? "Creating..." : "Create Sub-Subject"}
+                          </Button>
+                        </div>
+                      </form>
+                    </div>
+
                     {/* Subjects List */}
-                    <h3 className="text-lg font-semibold text-foreground mb-4">Existing Subjects ({subjects.length})</h3>
                     {subjects.length === 0 ? (
                       <p className="text-muted-foreground">No subjects available. Create your first subject above!</p>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {subjects.map((subject) => (
-                          <div
-                            key={subject.id}
-                            className="flex items-center justify-between p-4 rounded-lg border border-border/50 hover:bg-accent/50 transition"
-                          >
-                            <span className="font-medium text-foreground">{subject.subject_name}</span>
-                            <button
-                              onClick={() => handleDeleteSubject(subject.id, subject.subject_name)}
-                              className="p-2 hover:bg-red-500/10 rounded transition"
-                              title="Delete subject"
-                            >
-                              <Trash2 size={18} className="text-red-500" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
+                      <>
+                        {/* Parent Subjects Section */}
+                        <div className="mb-8">
+                          <h3 className="text-lg font-semibold text-foreground mb-4">
+                            Parent Subjects ({subjects.filter((s) => !s.parent_id).length})
+                          </h3>
+                          {subjects.filter((s) => !s.parent_id).length === 0 ? (
+                            <p className="text-muted-foreground">No parent subjects yet.</p>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                              {subjects
+                                .filter((s) => !s.parent_id)
+                                .map((subject) => (
+                                  <div
+                                    key={subject.id}
+                                    className="flex flex-col p-4 rounded-lg border-2 border-green-200 bg-green-50/30 dark:border-green-800 dark:bg-green-900/20 hover:shadow-md transition"
+                                  >
+                                    <div className="flex items-start justify-between mb-2">
+                                      <span className="font-bold text-foreground text-sm">PARENT</span>
+                                      <button
+                                        onClick={() => handleDeleteSubject(subject.id, subject.subject_name)}
+                                        className="p-1 hover:bg-red-500/10 rounded transition"
+                                        title="Delete subject"
+                                      >
+                                        <Trash2 size={16} className="text-red-500" />
+                                      </button>
+                                    </div>
+                                    <span className="font-semibold text-foreground">{subject.subject_name}</span>
+                                    {subject.subject_description && (
+                                      <p className="text-xs text-muted-foreground mt-2">{subject.subject_description}</p>
+                                    )}
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Child Subjects Section */}
+                        <div>
+                          <h3 className="text-lg font-semibold text-foreground mb-4">
+                            Sub-Subjects ({subjects.filter((s) => s.parent_id).length})
+                          </h3>
+                          {subjects.filter((s) => s.parent_id).length === 0 ? (
+                            <p className="text-muted-foreground">No sub-subjects yet. Create one using the form above.</p>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                              {subjects
+                                .filter((s) => s.parent_id)
+                                .map((subject) => {
+                                  const parentName = subjects.find((p) => p.id === subject.parent_id)?.subject_name;
+                                  return (
+                                    <div
+                                      key={subject.id}
+                                      className="flex flex-col p-4 rounded-lg border-2 border-blue-200 bg-blue-50/30 dark:border-blue-800 dark:bg-blue-900/20 hover:shadow-md transition"
+                                    >
+                                      <div className="flex items-start justify-between mb-2">
+                                        <span className="font-bold text-foreground text-sm">SUB</span>
+                                        <button
+                                          onClick={() => handleDeleteSubject(subject.id, subject.subject_name)}
+                                          className="p-1 hover:bg-red-500/10 rounded transition"
+                                          title="Delete subject"
+                                        >
+                                          <Trash2 size={16} className="text-red-500" />
+                                        </button>
+                                      </div>
+                                      <span className="font-semibold text-foreground">{subject.subject_name}</span>
+                                      {parentName && (
+                                        <p className="text-xs text-muted-foreground mt-1">under: {parentName}</p>
+                                      )}
+                                      {subject.subject_description && (
+                                        <p className="text-xs text-muted-foreground mt-2">{subject.subject_description}</p>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </div>
+                      </>
                     )}
                   </Card>
                 </motion.div>

@@ -19,6 +19,11 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000
 interface Subject {
   id: number;
   subject_name: string;
+  subject_description?: string;
+  parent_id?: number | null;
+  parent_name?: string;
+  display_order?: number;
+  children?: Subject[];
 }
 
 const StartTest = () => {
@@ -26,19 +31,21 @@ const StartTest = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [subjectId, setSubjectId] = useState<string | undefined>(undefined);
+  const [subSubjectId, setSubSubjectId] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [parentSubjects, setParentSubjects] = useState<Subject[]>([]);
+  const [subSubjects, setSubSubjects] = useState<Subject[]>([]);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(true);
+  const [isLoadingSubSubjects, setIsLoadingSubSubjects] = useState(false);
 
-  // Fetch subjects from database
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/subjects`);
+        const response = await fetch(`${API_BASE_URL}/subjects/parents`);
         if (response.ok) {
           const data = await response.json();
-          setSubjects(data);
+          setParentSubjects(data);
         } else {
           setError("Failed to load subjects");
         }
@@ -53,10 +60,55 @@ const StartTest = () => {
     fetchSubjects();
   }, []);
 
+  
+  useEffect(() => {
+    const fetchSubSubjects = async () => {
+      if (!subjectId) {
+        setSubSubjects([]);
+        setSubSubjectId(undefined);
+        return;
+      }
+
+      setIsLoadingSubSubjects(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/subjects/parent/${subjectId}/children`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.children && data.children.length > 0) {
+            setSubSubjects(data.children);
+            setSubSubjectId(undefined); 
+          } else {
+            setSubSubjects([]);
+            setSubSubjectId(undefined);
+          }
+        } else {
+          setSubSubjects([]);
+        }
+      } catch (err) {
+        console.error("Error fetching sub-subjects:", err);
+        setSubSubjects([]);
+      } finally {
+        setIsLoadingSubSubjects(false);
+      }
+    };
+
+    fetchSubSubjects();
+  }, [subjectId]);
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !subjectId) {
+
+    const finalSubjectId = subSubjects.length > 0 
+      ? subSubjectId 
+      : subjectId;   
+    
+    if (!name.trim() || !email.trim() || !finalSubjectId) {
       setError("Please fill in all fields to begin the test.");
+      return;
+    }
+
+    if (subSubjects.length > 0 && !subSubjectId) {
+      setError("Please select a sub-category for this subject.");
       return;
     }
     
@@ -70,7 +122,7 @@ const StartTest = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           student_name: name,
-          subject_id: parseInt(subjectId),
+          subject_id: parseInt(finalSubjectId),
           email: email,
         }),
       });
@@ -80,8 +132,7 @@ const StartTest = () => {
       }
       
       const studentData = await response.json();
-      
-      // Navigate to test page with student info
+
       navigate("/tests", {
         replace: false,
         state: {
@@ -89,7 +140,7 @@ const StartTest = () => {
             id: studentData.id,
             name,
             email,
-            subjectId: parseInt(subjectId),
+            subjectId: parseInt(finalSubjectId),
             startedAt: Date.now(),
           },
         },
@@ -126,27 +177,27 @@ const StartTest = () => {
                   <ul className="space-y-2 text-sm text-muted-foreground">
                     <li className="flex gap-2">
                       <span className="text-primary mt-0.5">•</span>
-                      <span><strong>Timed Assessment:</strong> Each subject has a specific duration (Radiology: 90 min, Cardiology: 75 min, Neurology: 80 min, Orthopedics: 70 min)</span>
+                      <span><strong>Timed Mock:</strong> Duration varies by track (FRCR Rapid Reporting, FRCR 2B, EBIR, Breast Imaging, ED X-ray)</span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-primary mt-0.5">•</span>
-                      <span><strong>Auto-Submit:</strong> The test will automatically submit when the timer reaches zero</span>
+                      <span><strong>Auto-Submit:</strong> The exam submits automatically when time expires.</span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-primary mt-0.5">•</span>
-                      <span><strong>Subject Lock:</strong> Once you begin, you cannot change the selected subject</span>
+                      <span><strong>Locked Track:</strong> You cannot change exam track once started.</span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-primary mt-0.5">•</span>
-                      <span><strong>Image Analysis:</strong> You will analyze medical images and provide detailed descriptive answers</span>
+                      <span><strong> Image Interpretation Required:</strong>  Questions include X-ray, CT, MRI, US, and IR cases.</span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-primary mt-0.5">•</span>
-                      <span><strong>No Refresh:</strong> Refreshing the page will reset your progress and timer</span>
+                      <span><strong> Structured Answers:</strong> Some sections require free-text reporting.</span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-primary mt-0.5">•</span>
-                      <span><strong>Complete All Questions:</strong> Ensure you answer all questions before the timer ends</span>
+                      <span><strong>No Refresh:</strong> Reloading will terminate your session.</span>
                     </li>
                   </ul>
                 </div>
@@ -160,24 +211,57 @@ const StartTest = () => {
                     <Label htmlFor="email">Email</Label>
                     <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
                   </div>
+                  
+                  {/* Parent Subject Selection */}
                   <div className="space-y-2">
-                    <Label>Subject</Label>
+                    <Label>Exam Category</Label>
                     <Select value={subjectId} onValueChange={setSubjectId} disabled={isLoadingSubjects}>
                       <SelectTrigger>
-                        <SelectValue placeholder={isLoadingSubjects ? "Loading subjects..." : "Select subject"} />
+                        <SelectValue placeholder={isLoadingSubjects ? "Loading subjects..." : "Select exam category"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {subjects.map((s) => (
-                          <SelectItem key={s.id} value={s.id.toString()}>{s.subject_name}</SelectItem>
+                        {parentSubjects.map((s) => (
+                          <SelectItem key={s.id} value={s.id.toString()}>
+                            {s.subject_name}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {subjectId && parentSubjects.find(s => s.id.toString() === subjectId)?.subject_description && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {parentSubjects.find(s => s.id.toString() === subjectId)?.subject_description}
+                      </p>
+                    )}
                   </div>
+
+                  {/* Sub-Subject Selection (shown only if parent has children) */}
+                  {subjectId && subSubjects.length > 0 && (
+                    <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
+                      <Label>Sub-Category</Label>
+                      <Select value={subSubjectId} onValueChange={setSubSubjectId} disabled={isLoadingSubSubjects}>
+                        <SelectTrigger className="border-primary/50">
+                          <SelectValue placeholder={isLoadingSubSubjects ? "Loading sub-categories..." : "Select sub-category"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {subSubjects.map((s) => (
+                            <SelectItem key={s.id} value={s.id.toString()}>
+                              {s.subject_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {subSubjectId && subSubjects.find(s => s.id.toString() === subSubjectId)?.subject_description && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {subSubjects.find(s => s.id.toString() === subSubjectId)?.subject_description}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
                   <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? "Saving..." : "Bigin Test"}
+                    {isSubmitting ? "Saving..." : "Begin Test"}
                   </Button>
                 </form>
               </div>

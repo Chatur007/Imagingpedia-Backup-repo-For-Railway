@@ -25,6 +25,52 @@ export interface SubmissionResult {
 }
 
 export const api = {
+  // Generic GET request
+  async get<T = any>(endpoint: string): Promise<{ data: T }> {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!response.ok) throw new Error(`GET ${endpoint} failed`);
+    const data = await response.json();
+    return { data };
+  },
+
+  // Generic POST request
+  async post<T = any>(endpoint: string, body?: any): Promise<{ data: T }> {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!response.ok) throw new Error(`POST ${endpoint} failed`);
+    const data = await response.json();
+    return { data };
+  },
+
+  // Generic PUT request
+  async put<T = any>(endpoint: string, body?: any): Promise<{ data: T }> {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!response.ok) throw new Error(`PUT ${endpoint} failed`);
+    const data = await response.json();
+    return { data };
+  },
+
+  // Generic DELETE request
+  async delete<T = any>(endpoint: string): Promise<{ data: T }> {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!response.ok) throw new Error(`DELETE ${endpoint} failed`);
+    const data = await response.json();
+    return { data };
+  },
+
   // Create a new question
   async createQuestion(data: {
     question_image: string;

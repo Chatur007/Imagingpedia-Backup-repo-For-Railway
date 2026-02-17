@@ -12,9 +12,7 @@ router.post("/",async(req,res)=>{
         const{student_id,question_id,answer,model_answer,max_marks}=req.body;
         
         console.log("Parsed values:", { student_id, question_id, answer: answer?.substring(0, 100), model_answer: model_answer?.substring(0, 100), max_marks });
-        
-        // If model_answer and max_marks are provided in request, use them
-        // Otherwise, fetch from database
+
         let model, marks;
         
         if (model_answer && max_marks) {
@@ -49,7 +47,7 @@ router.post("/",async(req,res)=>{
         
         console.log("Saved submission:", saved.rows[0]);
         
-        // Return the data with consistent field names (improvement not improvements)
+      
         const result = {
             ...saved.rows[0],
             improvement: saved.rows[0].improvements

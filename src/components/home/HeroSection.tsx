@@ -4,6 +4,7 @@ import { ArrowRight, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import UpdatedHeroImage from "@/assets/Gemini_Generated_Image_cmg1ufcmg1ufcmg1.png";
 import mobileImage from "@/assets/Mobile screen.png";
+import Img1 from "@/assets/Suspicious Mass.png";
 
 export const HeroSection = () => {
   return (
@@ -12,11 +13,11 @@ export const HeroSection = () => {
       <div className="absolute inset-0 z-0">
         <picture className="block h-full w-full">
           <source media="(max-width: 768px)" srcSet={mobileImage} />
-          <source media="(min-width: 769px)" srcSet={UpdatedHeroImage} />
+          <source media="(min-width: 769px)" srcSet={Img1} />
           <img
-            src={UpdatedHeroImage}
+            src={Img1}
             alt="Medical imaging background"
-            className="w-full h-full object-cover opacity-70"
+            className="w-full h-full object-cover opacity-100"
           />
         </picture>
         <div className="absolute inset-0 hero-overlay" />
@@ -38,7 +39,7 @@ export const HeroSection = () => {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm mb-8"
           >
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            Premier Medical Education Platform
+            AI Powered Radiology Learning Platform
           </motion.div>
 
           <motion.h1
@@ -46,11 +47,9 @@ export const HeroSection = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
             className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-foreground leading-tight mb-6"
-          >
-            Master Medical{" "}
-            <span className="text-gradient">Imaging</span>
-            <br />
-            with Expert Guidance
+          > <div>Train <span className="text-gradient">Smarter.</span></div>
+            <div>Diagnose <span className="text-gradient">Precisely.</span></div> 
+            <div>Intervene <span className="text-gradient">Confidently.</span> </div>
           </motion.h1>
 
           <motion.p
@@ -59,8 +58,8 @@ export const HeroSection = () => {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10"
           >
-            Comprehensive courses in radiology, anatomy, and diagnostic sciences. 
-            Learn from world-class instructors with secure, professional video content.
+            High yield radiology courses, structured reporting, and exam style question banks plus step by step modules for image guided procedures.
+
           </motion.p>
 
           <motion.div
@@ -91,10 +90,10 @@ export const HeroSection = () => {
             className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8"
           >
             {[
-              { value: "15+", label: "Expert Courses" },
-              { value: "5,000+", label: "Active Students" },
-              { value: "98%", label: "Pass Rate" },
-              { value: "24/7", label: "Support" },
+              { value: "1,500+", label: "Exam Style Questions" },
+              { value: "300+", label: "Annotated Cases" },
+              { value: "50+", label: "Image Procedure Pathways" },
+              { value: "4.8/5", label: "User Rating" },
             ].map((stat, index) => (
               <div key={index} className="text-center">
                 <div className="text-3xl md:text-4xl font-display font-bold text-primary mb-1">

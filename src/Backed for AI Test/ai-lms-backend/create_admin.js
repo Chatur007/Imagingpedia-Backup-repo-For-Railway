@@ -17,7 +17,7 @@ async function createNewAdmin() {
     console.log("CREATE NEW ADMIN USER");
     console.log("========================================\n");
 
-    // Get username
+
     const username = await question("Enter username: ");
     
     if (!username.trim()) {
@@ -25,7 +25,6 @@ async function createNewAdmin() {
       process.exit(1);
     }
 
-    // Check if username already exists
     const existingUser = await pool.query(
       "SELECT * FROM admins WHERE username = $1",
       [username]
@@ -36,7 +35,7 @@ async function createNewAdmin() {
       process.exit(1);
     }
 
-    // Get password
+
     const password = await question("Enter password: ");
     
     if (!password.trim() || password.length < 6) {
@@ -44,14 +43,14 @@ async function createNewAdmin() {
       process.exit(1);
     }
 
-    // Get email (optional)
+
     const email = await question("Enter email (optional): ");
 
-    // Hash the password
+
     console.log("\nHashing password...");
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert the new admin
+
     const result = await pool.query(
       "INSERT INTO admins (username, email, password) VALUES ($1, $2, $3) RETURNING id, username, email, created_at",
       [username, email.trim() || null, hashedPassword]
