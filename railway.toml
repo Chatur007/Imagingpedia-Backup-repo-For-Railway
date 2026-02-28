@@ -1,0 +1,8 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "cd \"src/Backed for AI Test/ai-lms-backend\" && npm ci"
+
+[deploy]
+startCommand = "cd \"src/Backed for AI Test/ai-lms-backend\" && npm start"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
