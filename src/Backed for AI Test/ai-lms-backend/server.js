@@ -38,6 +38,20 @@ if (!fs.existsSync(uploadsDir)) {
 }
 app.use("/uploads", express.static(uploadsDir));
 
+app.get("/", (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: "Imagingpedia backend is running",
+    });
+});
+
+app.get("/health", (req, res) => {
+    res.status(200).json({
+        success: true,
+        status: "ok",
+    });
+});
+
 app.use("/questions",questionRoutes);
 app.use("/practice-questions", practiceQuestionsRoutes);
 app.use("/practice-subjects", practiceSubjectsRoutes);
