@@ -26,7 +26,7 @@ origin: [
 "http://localhost:8080",
 "http://localhost:8081",
 "https://imagingpedia-backup-repo-for-railwa.vercel.app",
-"https://imagingpediatestingfordeployement-production.up.railway.app"
+"https://imagingpedia-backup-repo-for-railway-production.up.railway.app"
 ],
 credentials: true
 }));
