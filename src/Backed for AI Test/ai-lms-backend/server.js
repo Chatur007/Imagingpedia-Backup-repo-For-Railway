@@ -25,8 +25,8 @@ origin: [
 "http://localhost:5173",
 "http://localhost:8080",
 "http://localhost:8081",
-"https://imagingpedia-testing.vercel.app",
-"https://imagingpedia-testing.onrender.com"
+"https://imagingpedia-backup-repo-for-railwa.vercel.app",
+"https://imagingpediatestingfordeployement-production.up.railway.app"
 ],
 credentials: true
 }));
